@@ -1,0 +1,263 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String   @id @default(uuid())
+  email       String   @unique
+  password     String?
+  otpCode      String?
+  otpExpiresAt DateTime?
+  tokenVersion Int       @default(0)
+  displayName  String
+  role        String   @default("user") // admin | user | viewer | bdm
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  orders      Order[]
+  stepAssignments StepAssignment[]
+  customAlerts    CustomAlert[]
+  bdmProposals    Proposal[]       @relation("BdmProposals")
+  approvedProposals Proposal[]     @relation("ApprovedProposals")
+  ordersAsBdm     Order[]          @relation("OrderBdm")
+  assignedClients Client[]         @relation("ClientBdm")
+  multiAssignedClients Client[]    @relation("ClientBdms")
+  assignedProposals    Proposal[]  @relation("ProposalAssignees")
+  dateRangeSlaRules DateRangeSlaRule[]
+  bdmBudgetQuotes     BudgetQuote[] @relation("BudgetQuoteBdm")
+  createdBudgetQuotes BudgetQuote[] @relation("BudgetQuoteCreator")
+  assignedBudgetQuotes BudgetQuote[] @relation("BudgetQuoteAssignees")
+  assignedOrders       Order[]       @relation("OrderAssignees")
+}
+
+model Client {
+  id          String   @id @default(uuid())
+  name        String
+  contactName String
+  email       String
+  ccEmails    String?
+  bdmId       String?
+  bdm         User?    @relation("ClientBdm", fields: [bdmId], references: [id])
+  bdms        User[]   @relation("ClientBdms")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  orders       Order[]
+  proposals    Proposal[]
+  budgetQuotes BudgetQuote[] @relation("ClientBudgetQuotes")
+
+  @@index([name])
+  @@index([email])
+  @@index([bdmId])
+}
+
+model Order {
+  dbId          String   @id @default(uuid())
+  id            String
+  clientName    String
+  clientId      String?
+  client        Client?  @relation(fields: [clientId], references: [id])
+  licenseType   String?
+  licenseCount  Int?     @default(1)
+  products      Json?    @default("[]")
+  status        String   @default("requirements_gathering")
+  category      String   @default("device_management")
+  assignedTo    String   @default("Unassigned")
+  assignedEmail String   @default("")
+  notes         String?  @db.Text
+  quoteAmount        Float?
+  supplierQuoteNumber String?
+  proformaInvoiceLink String? @db.Text
+  proformaInvoiceText String?
+  taxInvoiceLink     String?  @db.Text
+  taxInvoiceText     String?
+  onsitePurchaseOrderLink String? @db.Text
+  onsitePurchaseOrderText String?
+  onsiteQuoteLink    String?  @db.Text
+  onsiteQuoteText    String?
+  customerQuoteLink  String?  @db.Text
+  customerQuoteText  String?
+  customerPopLink      String?  @db.Text   // Customer Proof of Payment
+  onsiteTaxInvoiceLink String?  @db.Text  // Onsite Tax Invoice
+  technicalQuoteLink   String?  @db.Text  // Technical Quote
+  technicalQuoteText   String?
+  salesQuoteLink       String?  @db.Text  // Sales Quote
+  salesQuoteText       String?
+  bdmId         String?
+  bdm           User?    @relation("OrderBdm", fields: [bdmId], references: [id])
+  assignees     User[]   @relation("OrderAssignees")
+  customAttachments Json? @default("[]")
+  slaViolation  Boolean  @default(false)
+  createdBy     String
+  creator       User     @relation(fields: [createdBy], references: [id])
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  audits        OrderStepAudit[]
+
+  @@index([status])
+  @@index([clientId])
+  @@index([createdAt(sort: Desc)])
+}
+
+model StepAssignment {
+  id              String  @id @default(uuid())
+  step            String
+  userId          String
+  user            User    @relation(fields: [userId], references: [id])
+  notifyOnArrival Boolean @default(true)
+  notifyOnSLA     Boolean @default(true)
+  canAdvance      Boolean @default(true)
+
+  @@unique([step, userId])
+}
+
+model WorkflowStep {
+  id                    String  @id
+  label                 String
+  color                 String
+  position              Int
+  canSkip               Boolean @default(true)
+  isExternalTeam        Boolean @default(false)
+  clientReminderEnabled Boolean @default(false)
+  dateRangeSlaRules     DateRangeSlaRule[]
+}
+
+model StepAttachmentRequirement {
+  id        String @id @default(uuid())
+  step      String @unique
+  documents String @default("") // comma-separated required field names, e.g. "technicalQuoteLink,salesQuoteLink"
+}
+
+model StepThankYouEmail {
+  id        String  @id @default(uuid())
+  step      String  @unique
+  enabled   Boolean @default(false)
+  subject   String?
+  emailBody String? @db.Text
+}
+
+model StepDocumentTrigger {
+  id            String  @id @default(uuid())
+  step          String
+  document      String  // 'taxInvoiceLink' | 'proformaInvoiceLink' | 'onsitePurchaseOrderLink'
+  recipientType String  @default("client") // 'client' | 'custom'
+  customEmail   String?
+  subject                  String?
+  emailBody                String?  @db.Text
+  enabled                  Boolean  @default(true)
+  clearAllAttachmentsAfter Boolean  @default(false)
+}
+
+model OrderStepAudit {
+  id              String    @id @default(uuid())
+  orderId         String
+  order           Order     @relation(fields: [orderId], references: [dbId], onDelete: Cascade)
+  step            String
+  startedAt       DateTime  @default(now())
+  completedAt     DateTime?
+  movedById       String?
+  movedByName     String?
+  reminder2DaysSent     Boolean   @default(false)
+  reminder5DaysSent     Boolean   @default(false)
+  lastDailyReminderSentAt DateTime?
+  firedCustomAlerts     String[]  @default([])
+  clientReminder5Sent   Boolean   @default(false)
+  clientReminder7Sent   Boolean   @default(false)
+  clientExpiredSent     Boolean   @default(false)
+  clientReminderResetAt DateTime?
+}
+
+model CustomAlert {
+  id        String   @id @default(uuid())
+  stepId    String
+  hours     Int
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Proposal {
+  id                String    @id @default(uuid())
+  title             String
+  clientId          String
+  client            Client    @relation(fields: [clientId], references: [id])
+  bdmId             String
+  bdm               User      @relation("BdmProposals", fields: [bdmId], references: [id])
+  status            String    @default("draft") // draft | pending_approval | approved | sent | rejected
+  message           String?   @db.Text
+  signature         String?   @db.Text
+  products          Json      @default("[]")  // [{category, name, unitCost, quantity, lineTotal}]
+  selectedDocuments       String?   @db.Text  // kept for legacy read; no longer written
+  attachments             String[]             // kept for legacy read; no longer written
+  technicalQuoteLink      String?   @db.Text
+  salesQuoteLink          String?   @db.Text
+  proformaInvoiceLink     String?   @db.Text
+  taxInvoiceLink          String?   @db.Text
+  onsiteQuoteLink         String?   @db.Text
+  customerQuoteLink       String?   @db.Text
+  customerPopLink         String?   @db.Text
+  onsitePurchaseOrderLink String?   @db.Text
+  onsiteTaxInvoiceLink    String?   @db.Text
+  expiresAt               DateTime?
+  adminNotes        String?   @db.Text
+  approvedById      String?
+  approvedBy        User?     @relation("ApprovedProposals", fields: [approvedById], references: [id])
+  assignees         User[]    @relation("ProposalAssignees")
+  sentAt            DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([bdmId])
+  @@index([clientId])
+  @@index([status])
+}
+
+model DateRangeSlaRule {
+  id        String       @id @default(uuid())
+  stepId    String
+  step      WorkflowStep @relation(fields: [stepId], references: [id], onDelete: Cascade)
+  fromDay   Int          // 1–31, day of month range start
+  toDay     Int          // 1–31, day of month range end
+  hours     Int          // threshold in business hours
+  userId    String?      // null = applies to all assigned users; set = user-specific
+  user      User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime     @default(now())
+
+  @@index([stepId])
+}
+
+model BudgetQuote {
+  id               String    @id @default(uuid())
+  quoteNumber      String    @unique
+  clientId         String
+  client           Client    @relation("ClientBudgetQuotes", fields: [clientId], references: [id])
+  clientName       String
+  title            String?
+  products         Json      @default("[]")
+  quoteAmount      Float     @default(0)
+  notes            String?   @db.Text
+  message          String?   @db.Text
+  signature        String?   @db.Text
+  adminNotes       String?   @db.Text
+  status           String    @default("draft") // draft | pending_approval | approved | queried | sent | accepted | declined | converted
+  technicalQuoteLink  String? @db.Text
+  salesQuoteLink      String? @db.Text
+  proformaInvoiceLink String? @db.Text
+  onsiteQuoteLink     String? @db.Text
+  customerQuoteLink   String? @db.Text
+  bdmId            String?
+  bdm              User?     @relation("BudgetQuoteBdm", fields: [bdmId], references: [id])
+  assignees        User[]    @relation("BudgetQuoteAssignees")
+  convertedOrderId String?
+  expiresAt        DateTime?
+  createdBy        String
+  creator          User      @relation("BudgetQuoteCreator", fields: [createdBy], references: [id])
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([clientId])
+  @@index([status])
+  @@index([createdBy])
+}

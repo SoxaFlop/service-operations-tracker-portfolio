@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title description">
+  <title id="title">Service Operations Tracker</title>
+  <desc id="description">Abstract workflow mark made from connected rounded squares</desc>
+  <rect width="128" height="128" rx="28" fill="#18181b"/>
+  <path d="M42 40h44M42 64h44M42 88h44" stroke="#a78bfa" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="42" cy="40" r="10" fill="#f8fafc"/>
+  <circle cx="86" cy="64" r="10" fill="#f8fafc"/>
+  <circle cx="42" cy="88" r="10" fill="#f8fafc"/>
+</svg>

@@ -2,7 +2,7 @@
 
 A sanitised portfolio edition of a full-stack service workflow platform. It demonstrates the architecture and engineering patterns of the original application without production credentials, customer records, company branding, deployment links or inherited Git history.
 
-The repository starts with a single sanitised commit. All names, email addresses and examples are fictional.
+The repository uses a fresh, sanitised history with no production ancestry. All names, email addresses and examples are fictional.
 
 ## What it demonstrates
 

@@ -1,0 +1,5 @@
+{
+  "name": "Service Operations Tracker",
+  "description": "A sanitised full-stack portfolio application for managing service workflows, customers and orders.",
+  "requestFramePermissions": []
+}
